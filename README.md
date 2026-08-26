@@ -88,7 +88,7 @@ You can register a new account on the Registration page or sign in directly usin
 | **Patient** | `demo@medicare.org` | `password123` |
 | **Physician / Doctor** | `doctor@hospital.org` | `password123` |
 | **Caregiver** | `caregiver@family.org` | `password123` |
-
+| ** Admin** | 'admin@medicare.io' |  'admin123'
 ---
 
 ## 🗄️ Database Setup
