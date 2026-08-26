@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}MediCare+ — Caregiver Contacts & Emergency Alerts{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header Banner -->
+  <div class="bg-gradient-to-r from-slate-850 via-slate-800 to-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center space-x-3">
+      <div class="p-3 bg-teal-500/10 rounded-2xl text-teal-400">
+        <i data-lucide="bell" class="h-6 w-6"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-white">Caregiver Alert Contacts & SMS Gateways</h1>
+        <p class="text-xs text-slate-400">Contacts receiving automated SMS and email notifications on repeated missed doses</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Caregivers Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    {% for c in caregivers %}
+      <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-4">
+        <div>
+          <div class="flex items-start justify-between pb-3 border-b border-slate-800">
+            <div>
+              <h2 class="font-bold text-white text-base">{{ c.name }}</h2>
+              <span class="text-xs text-teal-400 font-semibold">{{ c.relation or 'Designated Contact' }}</span>
+            </div>
+            <span class="bg-emerald-500/20 text-emerald-300 text-xs px-2.5 py-1 rounded-full font-bold border border-emerald-500/30">
+              Active Responder
+            </span>
+          </div>
+
+          <div class="mt-4 space-y-2 text-xs">
+            <div class="flex items-center space-x-2 text-slate-300 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+              <i data-lucide="phone" class="h-4 w-4 text-teal-400"></i>
+              <span><strong>Phone / SMS:</strong> {{ c.phone or '+1 (555) 019-4821' }}</span>
+            </div>
+            <div class="flex items-center space-x-2 text-slate-300 bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+              <i data-lucide="mail" class="h-4 w-4 text-teal-400"></i>
+              <span><strong>Email Alert:</strong> {{ c.email or 'caregiver@medicare.org' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+          <span class="text-slate-400">Alert threshold: 2 missed doses</span>
+          <button onclick="alert('Simulated SMS alert dispatch initiated to {{ c.phone }}!')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg transition flex items-center gap-1">
+            <i data-lucide="send" class="h-3.5 w-3.5 text-teal-400"></i> Test Alert
+          </button>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

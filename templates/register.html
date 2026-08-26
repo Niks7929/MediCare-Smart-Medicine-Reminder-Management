@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediCare+ — Create Account</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 antialiased selection:bg-teal-500 selection:text-white">
+
+  <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
+    
+    <!-- Brand Header -->
+    <div class="text-center space-y-2">
+      <div class="inline-flex p-3 bg-gradient-to-tr from-teal-600 to-emerald-500 rounded-2xl text-white shadow-lg shadow-teal-500/20 mb-1">
+        <i data-lucide="user-plus" class="h-8 w-8"></i>
+      </div>
+      <h1 class="text-2xl font-black text-white tracking-tight">Create MediCare<span class="text-teal-400">+</span> Account</h1>
+      <p class="text-xs text-slate-400">Join the smart medication management network</p>
+    </div>
+
+    <!-- Error Alert -->
+    {% if error %}
+      <div class="p-3 bg-rose-950/80 border border-rose-500/40 text-rose-200 text-xs rounded-xl flex items-center space-x-2">
+        <i data-lucide="alert-circle" class="h-4 w-4 flex-shrink-0"></i>
+        <span>{{ error }}</span>
+      </div>
+    {% endif %}
+
+    <!-- Register Form -->
+    <form method="POST" action="/register" class="space-y-4">
+      <div>
+        <label class="block text-xs font-bold text-slate-300 mb-1">Full Name</label>
+        <input type="text" name="full_name" required placeholder="Enter Full Name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-teal-500 transition">
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 mb-1">Email Address</label>
+        <input type="email" name="email" required placeholder="user@example.com" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-teal-500 transition">
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 mb-1">Account Role</label>
+        <select name="role" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-teal-500 transition">
+          <option value="patient">Patient (Self / Family medication tracking)</option>
+          <option value="doctor">Clinician / Physician (Prescription & clinical oversight)</option>
+          <option value="caregiver">Caregiver (Ward monitoring & dose assistance)</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Password</label>
+          <input type="password" name="password" required placeholder="••••••••" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-teal-500 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Confirm</label>
+          <input type="password" name="confirm_password" required placeholder="••••••••" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-teal-500 transition">
+        </div>
+      </div>
+
+      <button type="submit" class="w-full py-3 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-teal-600/20 transition transform active:scale-98">
+        Register Account
+      </button>
+    </form>
+
+    <div class="text-center pt-2">
+      <p class="text-xs text-slate-400">
+        Already have an account? <a href="/login" class="text-teal-400 hover:text-teal-300 font-bold underline underline-offset-2">Sign In</a>
+      </p>
+    </div>
+
+  </div>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

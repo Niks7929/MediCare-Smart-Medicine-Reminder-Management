@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}MediCare+ — Caregiver Ward Monitoring Portal{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Caregiver Header Banner -->
+  <div class="bg-gradient-to-r from-slate-850 via-slate-800 to-slate-850 border border-indigo-500/30 rounded-2xl p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex items-center space-x-4">
+      <div class="h-14 w-14 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-extrabold text-2xl">
+        <i data-lucide="shield-check" class="h-7 w-7"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-xl font-bold text-white">{{ current_user.full_name }}</h1>
+          <span class="bg-indigo-500/20 text-indigo-300 text-xs px-2.5 py-0.5 rounded-full font-bold border border-indigo-500/30">
+            Designated Caregiver
+          </span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">
+          Assisted Dose Verification • Refill Alert Monitoring • Patient Safety Oversight
+        </p>
+      </div>
+    </div>
+
+    <!-- Active Patient Indicator -->
+    <div class="flex items-center space-x-3 bg-slate-900 border border-slate-700/80 px-4 py-2.5 rounded-xl text-xs">
+      <div>
+        <span class="text-slate-400 block text-[10px]">MONITORING PATIENT</span>
+        <span class="font-bold text-teal-400 text-sm">{{ active_patient.name }}</span>
+      </div>
+      <div class="h-7 w-px bg-slate-800"></div>
+      <div>
+        <span class="text-slate-400 block text-[10px]">ADHERENCE</span>
+        <span class="font-bold text-emerald-400 text-sm">{{ adherence.adherence_score }}%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Today's Regimen & Assisted Intake Confirmation -->
+  <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-sm">
+    <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-indigo-500/10 rounded-xl text-indigo-400">
+          <i data-lucide="check-circle" class="h-5 w-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-white">{{ active_patient.name }}'s Active Daily Regimen</h2>
+          <p class="text-xs text-slate-400">Confirm doses administered or trigger stock replenishment requests</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+      {% for m in medicines %}
+        <div class="bg-slate-900 border {% if m.needs_refill %}border-amber-500/40{% else %}border-slate-800{% endif %} rounded-xl p-4 flex flex-col justify-between space-y-3">
+          <div>
+            <div class="flex justify-between items-start">
+              <div>
+                <h3 class="font-bold text-white text-sm">{{ m.name }}</h3>
+                <span class="text-xs text-teal-400 font-semibold">{{ m.dosage }} • {{ m.form }}</span>
+              </div>
+              {% if m.needs_refill %}
+                <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded">
+                  Low ({{ m.remaining_quantity }} left)
+                </span>
+              {% endif %}
+            </div>
+            <p class="text-xs text-slate-400 mt-2">
+              <strong class="text-slate-300">Directions:</strong> {{ m.instructions }}
+            </p>
+          </div>
+
+          <!-- Actions -->
+          <div class="pt-3 border-t border-slate-800 flex space-x-2">
+            <form method="POST" action="/api/log-dose" class="flex-1">
+              <input type="hidden" name="medicine_id" value="{{ m.medicine_id }}">
+              <input type="hidden" name="patient_id" value="{{ active_patient.patient_id }}">
+              <input type="hidden" name="status" value="TAKEN">
+              <button type="submit" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow transition flex items-center justify-center gap-1">
+                <i data-lucide="check" class="h-3.5 w-3.5"></i> Administered
+              </button>
+            </form>
+
+            <form method="POST" action="/api/refill-request">
+              <input type="hidden" name="medicine_id" value="{{ m.medicine_id }}">
+              <input type="hidden" name="patient_id" value="{{ active_patient.patient_id }}">
+              <input type="hidden" name="requested_quantity" value="30">
+              <button type="submit" class="px-3 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 font-bold text-xs rounded-lg transition" title="Request Refill">
+                <i data-lucide="refresh-cw" class="h-3.5 w-3.5"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Recent Patient Dose Compliance Feed -->
+  <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-bold text-white flex items-center gap-2">
+        <i data-lucide="clock" class="h-5 w-5 text-teal-400"></i>
+        Live Intake Audit Trail for {{ active_patient.name }}
+      </h2>
+      <a href="/export-dose-history-csv/{{ active_patient.patient_id }}" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 hover:border-emerald-500 font-bold text-xs shadow-sm transition">
+        <i data-lucide="download" class="h-3.5 w-3.5"></i>
+        <span>Download CSV</span>
+      </a>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs text-slate-300">
+        <thead class="bg-slate-900 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+          <tr>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4">Medication</th>
+            <th class="py-3 px-4">Timestamp</th>
+            <th class="py-3 px-4">Reported Reason</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800">
+          {% for d in dose_records %}
+            <tr class="hover:bg-slate-900/50 transition">
+              <td class="py-3 px-4">
+                {% if d.status == 'TAKEN' %}
+                  <span class="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold">TAKEN</span>
+                {% elif d.status == 'TAKEN_LATE' %}
+                  <span class="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-bold">LATE</span>
+                {% elif d.status == 'SKIPPED' %}
+                  <span class="bg-slate-700 text-slate-300 px-2 py-0.5 rounded font-bold">SKIPPED</span>
+                {% else %}
+                  <span class="bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded font-bold">MISSED</span>
+                {% endif %}
+              </td>
+              <td class="py-3 px-4 font-bold text-white">{{ d.medicine_name }} ({{ d.dosage }})</td>
+              <td class="py-3 px-4 font-mono text-slate-400">{{ d.scheduled_datetime[:16].replace('T', ' ') if d.scheduled_datetime else '' }}</td>
+              <td class="py-3 px-4 text-rose-300">{{ d.missed_reason or '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Primary Clinic & Emergency Escalation Section -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Clinic Contact Card -->
+    <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-sm space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-white text-base flex items-center gap-2">
+          <i data-lucide="phone" class="h-5 w-5 text-indigo-400"></i>
+          Primary Clinic & Doctor Contact
+        </h3>
+        <span class="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/40">
+          24/7 Desk
+        </span>
+      </div>
+
+      <div class="p-4 bg-slate-900 rounded-xl border border-slate-800 text-xs space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-bold text-white text-sm">Dr. Sarah Chen, MD</p>
+            <p class="text-slate-400">Cardiology & Internal Medicine</p>
+          </div>
+          <div class="w-9 h-9 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold">
+            SC
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-800 space-y-1.5 text-slate-300">
+          <div class="flex justify-between">
+            <span class="text-slate-500">Helpline:</span>
+            <span class="font-mono font-bold text-teal-400">+1 (800) 555-0199</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Doctor Email:</span>
+            <span class="font-mono font-bold text-slate-200">doctor@medicare.org</span>
+          </div>
+        </div>
+
+        <div class="pt-3 flex gap-2">
+          <button onclick="alert('📞 Initiating secure voice connection with Dr. Sarah Chen, MD (+1 800-555-0199)... Call Connected!')" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5">
+            <i data-lucide="phone-call" class="h-3.5 w-3.5"></i> Call Clinic
+          </button>
+          <button onclick="let msg = prompt('Enter message for Dr. Sarah Chen:', 'Urgent inquiry regarding patient medication refill'); if(msg) alert('✉️ Clinical message dispatched to Dr. Chen: ' + msg);" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-1.5">
+            <i data-lucide="mail" class="h-3.5 w-3.5"></i> Email
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Escalation Rules -->
+    <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-sm space-y-4">
+      <h3 class="font-bold text-white text-base flex items-center gap-2">
+        <i data-lucide="shield-check" class="h-5 w-5 text-indigo-400"></i>
+        Emergency Escalation Settings
+      </h3>
+      <div class="space-y-3 text-xs text-slate-300">
+        <label class="flex items-center space-x-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer">
+          <input type="checkbox" checked onchange="alert('Setting updated: SMS alert on missed dose')" class="rounded text-indigo-600 bg-slate-950 border-slate-700">
+          <span>Notify caregiver immediately on missed dose (SMS)</span>
+        </label>
+        <label class="flex items-center space-x-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer">
+          <input type="checkbox" checked onchange="alert('Setting updated: Low supply notification')" class="rounded text-indigo-600 bg-slate-950 border-slate-700">
+          <span>Notify caregiver when inventory drops below 7 days supply</span>
+        </label>
+        <label class="flex items-center space-x-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer">
+          <input type="checkbox" checked onchange="alert('Setting updated: Weekly compliance summary')" class="rounded text-indigo-600 bg-slate-950 border-slate-700">
+          <span>Send weekly PDF adherence compliance summary to doctor</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

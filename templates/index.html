@@ -1,0 +1,900 @@
+{% extends "base.html" %}
+
+{% block title %}MediCare+ — Patient Medication Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Welcome & Profile Banner -->
+  <div class="bg-gradient-to-r from-slate-850 via-slate-800 to-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex items-center space-x-4">
+      <div class="h-14 w-14 rounded-2xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 font-extrabold text-2xl shadow-inner">
+        {{ active_patient.name[:1] if active_patient else 'P' }}
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-xl font-bold text-white">{{ active_patient.name if active_patient else 'Patient Record' }}</h1>
+          <span class="bg-teal-500/20 text-teal-300 text-xs px-2.5 py-0.5 rounded-full font-bold border border-teal-500/30">
+            {{ active_patient.relationship if active_patient else 'Self' }}
+          </span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">
+          Age: <strong class="text-slate-200">{{ active_patient.age }}</strong> • Blood: <strong class="text-slate-200">{{ active_patient.blood_group or 'O+' }}</strong> • Allergies: <strong class="text-rose-400">{{ active_patient.allergies or 'None reported' }}</strong>
+        </p>
+      </div>
+    </div>
+
+    <!-- Quick Status Pill -->
+    <div class="flex items-center space-x-3 bg-slate-900/90 border border-slate-700/80 px-4 py-2.5 rounded-xl text-xs">
+      <div>
+        <span class="text-slate-400 block text-[10px]">CURRENT TIME</span>
+        <span class="font-bold text-white text-sm">{{ current_time }}</span>
+      </div>
+      <div class="h-7 w-px bg-slate-800"></div>
+      <div>
+        <span class="text-slate-400 block text-[10px]">ACTIVE MEDS</span>
+        <span class="font-bold text-teal-400 text-sm">{{ medicines|length }}</span>
+      </div>
+      <div class="h-7 w-px bg-slate-800"></div>
+      <div>
+        <span class="text-slate-400 block text-[10px]">ADHERENCE</span>
+        <span class="font-bold text-emerald-400 text-sm">{{ adherence.adherence_score }}%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row: Adherence Analytics & ML Risk Assessment -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+    
+    <!-- Adherence Score Card -->
+    <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+          <i data-lucide="trending-up" class="h-4 w-4 text-emerald-400"></i>
+          Dose Compliance
+        </span>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+          {{ adherence.status_label }}
+        </span>
+      </div>
+      <div class="flex items-baseline space-x-2">
+        <span class="text-3xl font-black text-white">{{ adherence.adherence_score }}%</span>
+        <span class="text-xs text-slate-400">weekly score</span>
+      </div>
+      <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden mt-3">
+        <div class="bg-gradient-to-r from-teal-500 to-emerald-400 h-full rounded-full" style="width: {{ adherence.adherence_score }}%"></div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800 text-[11px] text-center">
+        <div>
+          <span class="text-emerald-400 font-bold block">{{ adherence.taken_doses }}</span>
+          <span class="text-slate-400">Taken</span>
+        </div>
+        <div>
+          <span class="text-rose-400 font-bold block">{{ adherence.missed_doses }}</span>
+          <span class="text-slate-400">Missed</span>
+        </div>
+        <div>
+          <span class="text-amber-400 font-bold block">{{ adherence.snoozed_doses }}</span>
+          <span class="text-slate-400">Snoozed</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Machine Learning Risk Engine -->
+    <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-5 shadow-sm md:col-span-2 flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="brain" class="h-4 w-4 text-teal-400"></i>
+            AI Missed-Dose Predictive Engine (Scikit-Learn)
+          </span>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full {% if ml_prediction.status_color == 'rose' %}bg-rose-500/20 text-rose-300 border border-rose-500/30{% elif ml_prediction.status_color == 'amber' %}bg-amber-500/20 text-amber-300 border border-amber-500/30{% else %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30{% endif %}">
+            {{ ml_prediction.risk_level }} ({{ ml_prediction.risk_score }}%)
+          </span>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Analyzes historical missed dose patterns, time of day friction, and snooze frequency to optimize compliance.
+        </p>
+      </div>
+
+      <div class="mt-3 bg-slate-900/90 rounded-xl p-3 border border-slate-800 space-y-1.5">
+        {% for rec in ml_prediction.recommendations %}
+          <div class="flex items-start space-x-2 text-xs text-teal-300">
+            <i data-lucide="sparkles" class="h-3.5 w-3.5 text-teal-400 flex-shrink-0 mt-0.5"></i>
+            <span>{{ rec }}</span>
+          </div>
+        {% else %}
+          <p class="text-xs text-emerald-300 flex items-center gap-1.5">
+            <i data-lucide="check-circle-2" class="h-4 w-4"></i> No elevated non-adherence triggers detected for current regimen.
+          </p>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Section: Today's Medication Routine & Reminder Actions -->
+  <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center space-x-2">
+        <div class="p-2 bg-teal-500/10 rounded-xl text-teal-400">
+          <i data-lucide="clock" class="h-5 w-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-white">Today's Medication Routine & Intake Schedule</h2>
+          <p class="text-xs text-slate-400">Record dose intake or snooze upcoming alarms</p>
+        </div>
+      </div>
+      <a href="/medications" class="text-xs font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1">
+        <span>Manage Medicines</span>
+        <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
+      </a>
+    </div>
+
+    {% if medicines %}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for m in medicines %}
+          <div class="bg-slate-900 border {% if m.needs_refill %}border-amber-500/40{% else %}border-slate-800{% endif %} rounded-xl p-4 flex flex-col justify-between space-y-3 relative group">
+            
+            {% if m.needs_refill %}
+              <div class="absolute -top-2.5 right-3 bg-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                <i data-lucide="alert-triangle" class="h-3 w-3"></i> LOW STOCK ({{ m.remaining_quantity }} left)
+              </div>
+            {% endif %}
+
+            <div>
+              <div class="flex items-start justify-between">
+                <div>
+                  <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                    <h3 class="font-bold text-white text-sm">{{ m.name }}</h3>
+                    <span class="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/40">
+                      <i data-lucide="bell" class="h-2.5 w-2.5 text-teal-400"></i>
+                      {{ m.schedules|length if m.schedules else 1 }} {{ 'Dose' if (m.schedules|length if m.schedules else 1) == 1 else 'Doses' }} Today
+                    </span>
+                  </div>
+                  <span class="text-xs font-semibold text-teal-400">{{ m.dosage }} • {{ m.form }}</span>
+                </div>
+                <button onclick="speakText('Time to take {{ m.name }} {{ m.dosage }}. Instructions: {{ m.instructions }}')" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition" title="Voice Announcement">
+                  <i data-lucide="volume-2" class="h-4 w-4"></i>
+                </button>
+              </div>
+              <p class="text-xs text-slate-400 mt-2 line-clamp-2">
+                <strong class="text-slate-300">Instructions:</strong> {{ m.instructions or 'Take as prescribed by doctor.' }}
+              </p>
+            </div>
+
+            <!-- Pill Count & Progress -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px]">
+                <span class="text-slate-400">Remaining Supply:</span>
+                <span class="font-bold {% if m.needs_refill %}text-amber-400{% else %}text-slate-200{% endif %}">{{ m.remaining_quantity }} of {{ m.total_quantity }}</span>
+              </div>
+              <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div class="h-full rounded-full {% if m.needs_refill %}bg-amber-500{% else %}bg-teal-500{% endif %}" style="width: {{ (m.remaining_quantity / m.total_quantity * 100)|round }}%"></div>
+              </div>
+            </div>
+
+            <!-- Dose Actions -->
+            <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800">
+              <!-- Mark Taken -->
+              <form method="POST" action="/api/log-dose" class="w-full">
+                <input type="hidden" name="medicine_id" value="{{ m.medicine_id }}">
+                <input type="hidden" name="patient_id" value="{{ active_patient.patient_id }}">
+                <input type="hidden" name="status" value="TAKEN">
+                <button type="submit" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow-sm flex items-center justify-center gap-1 transition">
+                  <i data-lucide="check" class="h-3.5 w-3.5"></i> Taken
+                </button>
+              </form>
+
+              <!-- Snooze Custom Interval -->
+              <form method="POST" action="/api/log-dose" class="w-full">
+                <input type="hidden" name="medicine_id" value="{{ m.medicine_id }}">
+                <input type="hidden" name="patient_id" value="{{ active_patient.patient_id }}">
+                <input type="hidden" name="status" value="TAKEN_LATE">
+                <input type="hidden" name="snooze_minutes" value="{{ m.snooze_interval_minutes or 10 }}">
+                <button type="submit" class="w-full py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition" title="Snooze reminder by {{ m.snooze_interval_minutes or 10 }} minutes">
+                  <i data-lucide="alarm-clock-off" class="h-3.5 w-3.5 text-indigo-400"></i> +{{ m.snooze_interval_minutes or 10 }}m
+                </button>
+              </form>
+
+              <!-- Skip Dose Modal Trigger -->
+              <button onclick="openSkipModal({{ m.medicine_id }}, '{{ m.name }}')" class="w-full py-2 bg-slate-800 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-700 font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition">
+                <i data-lucide="x" class="h-3.5 w-3.5"></i> Skip
+              </button>
+            </div>
+
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="py-12 text-center text-slate-400 bg-slate-900 rounded-xl border border-slate-800">
+        <i data-lucide="pill" class="h-10 w-10 mx-auto text-slate-600 mb-2"></i>
+        <p class="font-bold text-slate-300 text-sm">No Active Medications Scheduled</p>
+        <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1">Add medications to this patient profile to generate automatic daily reminder schedules.</p>
+        <a href="/medications" class="inline-block mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-lg">
+          Add First Medicine
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 30-DAY DAILY ADHERENCE LINE CHART (D3.JS) SECTION       -->
+  <!-- ======================================================== -->
+  <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-sm space-y-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-800 gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="p-2.5 bg-teal-500/10 rounded-xl text-teal-400">
+          <i data-lucide="trending-up" class="h-5 w-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            30-Day Daily Adherence Trajectory
+            <span class="text-[10px] font-extrabold bg-teal-500/20 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-full">
+              D3.js Line Chart
+            </span>
+          </h2>
+          <p class="text-xs text-slate-400">Daily medication compliance percentages and 80% clinical target tracking</p>
+        </div>
+      </div>
+
+      <!-- Range Controls -->
+      <div class="flex items-center space-x-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
+        <button onclick="changeD3Range(30)" id="d3Btn30" class="px-3 py-1 rounded-lg bg-teal-600 text-white transition">
+          Last 30 Days
+        </button>
+        <button onclick="changeD3Range(14)" id="d3Btn14" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white transition">
+          Last 14 Days
+        </button>
+        <button onclick="changeD3Range(7)" id="d3Btn7" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white transition">
+          Last 7 Days
+        </button>
+      </div>
+    </div>
+
+    <!-- Metric Summary Chips -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Period Average</span>
+        <span id="d3AvgScore" class="text-xl font-extrabold text-white mt-0.5 block">--%</span>
+        <span class="text-[10px] text-teal-400 block mt-0.5">Clinical Adherence</span>
+      </div>
+      <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Target Met (≥80%)</span>
+        <span id="d3TargetDays" class="text-xl font-extrabold text-emerald-400 mt-0.5 block">-- days</span>
+        <span class="text-[10px] text-slate-400 block mt-0.5">Target standard</span>
+      </div>
+      <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">100% Perfect Days</span>
+        <span id="d3PerfectDays" class="text-xl font-extrabold text-teal-300 mt-0.5 block">-- days</span>
+        <span class="text-[10px] text-slate-400 block mt-0.5">Zero missed doses</span>
+      </div>
+      <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Doses Confirmed</span>
+        <span id="d3TotalTaken" class="text-xl font-extrabold text-white mt-0.5 block">--</span>
+        <span class="text-[10px] text-slate-400 block mt-0.5">Intake confirmations</span>
+      </div>
+    </div>
+
+    <!-- D3 Chart Canvas Container -->
+    <div id="d3ChartContainer" class="relative w-full overflow-hidden pt-2">
+      <svg id="d3AdherenceSvg" class="w-full" style="min-height: 250px;"></svg>
+      <div id="d3Tooltip" class="absolute pointer-events-none bg-slate-950 text-white rounded-xl p-3 shadow-2xl border border-slate-700 text-xs space-y-1 z-30 hidden transform -translate-x-1/2 -translate-y-full transition-all duration-75"></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800 text-xs text-slate-400">
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-1.5">
+          <span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+          <span>100% Taken</span>
+        </div>
+        <div class="flex items-center space-x-1.5">
+          <span class="h-2.5 w-2.5 rounded-full bg-teal-500"></span>
+          <span>≥80% Target Met</span>
+        </div>
+        <div class="flex items-center space-x-1.5">
+          <span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
+          <span>&lt;80% Missed/Skipped</span>
+        </div>
+      </div>
+      <span class="text-[11px] text-slate-400">Interactive D3.js • Hover point to view dose audit detail</span>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- CRITICAL SECTION: DETAILED DOSE TAKEN VS MISSED HISTORY -->
+  <!-- ======================================================== -->
+  <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-sm">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-slate-800 gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="p-2.5 bg-teal-500/10 rounded-xl text-teal-400">
+          <i data-lucide="clipboard-list" class="h-5 w-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-white">Recent 'Dose Taken' vs 'Dose Missed' Compliance Logs</h2>
+          <p class="text-xs text-slate-400">Audit trail of verified doses, skipped intakes, and recorded non-compliance reasons</p>
+        </div>
+      </div>
+
+      <!-- Search Bar & Filter Controls -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <!-- Download CSV Button -->
+        <button
+          type="button"
+          onclick="downloadDoseHistoryCsv()"
+          id="downloadDoseCsvBtn"
+          class="flex items-center justify-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 hover:border-emerald-500 font-bold text-xs shadow-sm transition whitespace-nowrap active:scale-95"
+          title="Download CSV export of daily intake history for {{ active_patient.name }}"
+        >
+          <i data-lucide="download" class="h-3.5 w-3.5"></i>
+          <span>Download CSV</span>
+        </button>
+
+        <!-- Print Compliance Audit Button -->
+        <a
+          href="/audit-trail/{{ active_patient.patient_id }}"
+          target="_blank"
+          class="flex items-center justify-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-bold text-xs shadow-sm transition whitespace-nowrap"
+          title="Print official clinical compliance audit trail"
+        >
+          <i data-lucide="printer" class="h-3.5 w-3.5"></i>
+          <span>Print Audit</span>
+        </a>
+
+        <!-- Text Input Search Bar -->
+        <div class="relative min-w-[210px]">
+          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400"></i>
+          <input
+            type="text"
+            id="doseMedSearchInput"
+            oninput="filterDoseTable()"
+            placeholder="Search medication name..."
+            class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-7 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-teal-500 transition"
+          />
+          <button
+            id="clearDoseSearchBtn"
+            onclick="clearDoseSearch()"
+            class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs p-0.5"
+            title="Clear search"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="flex items-center space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
+          <button onclick="setDoseStatusFilter('ALL')" id="filterBtnALL" class="px-3 py-1.5 rounded-lg bg-teal-600 text-white transition whitespace-nowrap">
+            All Logs ({{ dose_records|length }})
+          </button>
+          <button onclick="setDoseStatusFilter('TAKEN')" id="filterBtnTAKEN" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition whitespace-nowrap">
+            Taken ({{ adherence.taken_doses }})
+          </button>
+          <button onclick="setDoseStatusFilter('MISSED')" id="filterBtnMISSED" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition whitespace-nowrap">
+            Missed / Skipped ({{ adherence.missed_doses + adherence.skipped_doses }})
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div class="overflow-x-auto mt-4">
+      <table class="w-full text-left text-xs text-slate-300">
+        <thead class="bg-slate-900/90 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800 font-bold">
+          <tr>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4">Medication & Dosage</th>
+            <th class="py-3 px-4">Scheduled Time</th>
+            <th class="py-3 px-4">Actual Intake Time</th>
+            <th class="py-3 px-4">Reported Reason / Notes</th>
+            <th class="py-3 px-4 text-right">Compliance Impact</th>
+          </tr>
+        </thead>
+        <tbody id="doseTableBody" class="divide-y divide-slate-800">
+          {% for d in dose_records %}
+            <tr class="hover:bg-slate-900/50 transition dose-row" data-status="{{ d.status }}" data-med-name="{{ d.medicine_name }}">
+              
+              <!-- Status Badge -->
+              <td class="py-3 px-4">
+                {% if d.status == 'TAKEN' %}
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <i data-lucide="check-circle-2" class="h-3.5 w-3.5 text-emerald-400"></i> TAKEN
+                  </span>
+                {% elif d.status == 'TAKEN_LATE' %}
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    <i data-lucide="clock" class="h-3.5 w-3.5 text-amber-400"></i> TAKEN LATE
+                  </span>
+                {% elif d.status == 'SKIPPED' %}
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold bg-slate-700 text-slate-300 border border-slate-600">
+                    <i data-lucide="minus-circle" class="h-3.5 w-3.5 text-slate-400"></i> SKIPPED
+                  </span>
+                {% else %}
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    <i data-lucide="x-circle" class="h-3.5 w-3.5 text-rose-400"></i> MISSED
+                  </span>
+                {% endif %}
+              </td>
+
+              <!-- Medication Name -->
+              <td class="py-3 px-4">
+                <span class="font-bold text-white block">{{ d.medicine_name }}</span>
+                <span class="text-[11px] text-slate-400">{{ d.dosage }} • {{ d.form }}</span>
+              </td>
+
+              <!-- Scheduled -->
+              <td class="py-3 px-4 font-mono text-slate-300">
+                {{ d.scheduled_datetime[:16].replace('T', ' ') if d.scheduled_datetime else 'Scheduled Dose' }}
+              </td>
+
+              <!-- Actual Intake Time -->
+              <td class="py-3 px-4 font-mono text-slate-300">
+                {% if d.actual_datetime %}
+                  <span class="text-emerald-400">{{ d.actual_datetime[:16].replace('T', ' ') }}</span>
+                {% else %}
+                  <span class="text-rose-400 italic">Not taken</span>
+                {% endif %}
+              </td>
+
+              <!-- Reason / Notes -->
+              <td class="py-3 px-4">
+                {% if d.missed_reason %}
+                  <span class="text-rose-300 bg-rose-950/40 border border-rose-500/20 px-2 py-1 rounded text-[11px] block font-medium">
+                    "{{ d.missed_reason }}"
+                  </span>
+                {% elif d.snooze_count and d.snooze_count > 0 %}
+                  <span class="text-amber-300 text-[11px]">Snoozed {{ d.snooze_count }}x ({{ d.snooze_minutes or 15 }}m delay)</span>
+                {% else %}
+                  <span class="text-slate-400 italic">No issues reported</span>
+                {% endif %}
+              </td>
+
+              <!-- Compliance Indicator -->
+              <td class="py-3 px-4 text-right">
+                {% if d.status in ('TAKEN', 'TAKEN_LATE') %}
+                  <span class="text-emerald-400 font-bold">+100% Adherent</span>
+                {% else %}
+                  <span class="text-rose-400 font-bold">Non-compliant</span>
+                {% endif %}
+              </td>
+
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="6" class="py-8 text-center text-slate-400">
+                <i data-lucide="clipboard-x" class="h-8 w-8 mx-auto text-slate-600 mb-2"></i>
+                <p class="font-bold text-slate-300">No dose logs on record yet</p>
+                <p class="text-xs text-slate-400">As you mark scheduled doses above, the compliance audit trail will log here automatically.</p>
+              </td>
+            </tr>
+          {% endfor %}
+
+          <!-- No Search Results Row -->
+          <tr id="doseNoResultsRow" class="hidden">
+            <td colspan="6" class="py-8 text-center text-slate-400">
+              <i data-lucide="search-x" class="h-8 w-8 mx-auto text-slate-600 mb-2"></i>
+              <p class="font-bold text-slate-300">No matching medication logs found</p>
+              <p class="text-xs text-slate-500 mt-1">Try adjusting your search keywords or clearing the filter.</p>
+              <button onclick="clearDoseSearch()" class="mt-3 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-teal-400 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition">
+                <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i> Clear Search
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Skip Reason Modal -->
+<div id="skipModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <h3 class="font-bold text-white text-base flex items-center gap-2">
+        <i data-lucide="alert-circle" class="h-5 w-5 text-rose-400"></i> Record Skipped Dose
+      </h3>
+      <button onclick="closeSkipModal()" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+
+    <form method="POST" action="/api/log-dose" class="space-y-4">
+      <input type="hidden" id="skipModalMedId" name="medicine_id" value="">
+      <input type="hidden" name="patient_id" value="{{ active_patient.patient_id }}">
+      <input type="hidden" name="status" value="SKIPPED">
+
+      <p class="text-xs text-slate-300">
+        Please specify why this dose of <strong id="skipModalMedName" class="text-teal-300"></strong> was skipped:
+      </p>
+
+      <div class="space-y-2">
+        <label class="block text-xs font-semibold text-slate-400">Reason</label>
+        <select name="reason" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none">
+          <option value="Felt nauseous or experienced side effects">Felt nauseous or experienced side effects</option>
+          <option value="Away from home / Forgot medication">Away from home / Forgot medication</option>
+          <option value="Pillbox supply empty (refill required)">Pillbox supply empty (refill required)</option>
+          <option value="Doctor advised temporary pause">Doctor advised temporary pause</option>
+          <option value="Fasting for lab work">Fasting for lab work</option>
+          <option value="Other / Personal preference">Other / Personal preference</option>
+        </select>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button type="button" onclick="closeSkipModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow">
+          Confirm Skip
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let currentDoseStatusFilter = 'ALL';
+
+  function setDoseStatusFilter(status) {
+    currentDoseStatusFilter = status;
+    const btns = ['ALL', 'TAKEN', 'MISSED'];
+    
+    btns.forEach(b => {
+      const btn = document.getElementById('filterBtn' + b);
+      if (btn) {
+        if (b === status) {
+          btn.className = 'px-3 py-1.5 rounded-lg bg-teal-600 text-white transition whitespace-nowrap';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition whitespace-nowrap';
+        }
+      }
+    });
+
+    filterDoseTable();
+  }
+
+  function downloadDoseHistoryCsv() {
+    const patientId = {{ active_patient.patient_id }};
+    const status = currentDoseStatusFilter || 'ALL';
+    const searchInput = document.getElementById('doseMedSearchInput');
+    const query = searchInput ? encodeURIComponent(searchInput.value.trim()) : '';
+    let url = `/export-dose-history-csv/${patientId}?status=${status}`;
+    if (query) {
+      url += `&q=${query}`;
+    }
+    window.location.href = url;
+  }
+
+  function clearDoseSearch() {
+    const input = document.getElementById('doseMedSearchInput');
+    if (input) {
+      input.value = '';
+    }
+    filterDoseTable();
+  }
+
+  function filterDoseTable() {
+    const input = document.getElementById('doseMedSearchInput');
+    const query = input ? input.value.trim().toLowerCase() : '';
+    const clearBtn = document.getElementById('clearDoseSearchBtn');
+    if (clearBtn) {
+      if (query.length > 0) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+    }
+
+    const rows = document.querySelectorAll('.dose-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+      const rowStatus = row.getAttribute('data-status');
+      const medName = (row.getAttribute('data-med-name') || '').toLowerCase();
+
+      let statusMatch = false;
+      if (currentDoseStatusFilter === 'ALL') {
+        statusMatch = true;
+      } else if (currentDoseStatusFilter === 'TAKEN' && (rowStatus === 'TAKEN' || rowStatus === 'TAKEN_LATE')) {
+        statusMatch = true;
+      } else if (currentDoseStatusFilter === 'MISSED' && (rowStatus === 'MISSED' || rowStatus === 'SKIPPED')) {
+        statusMatch = true;
+      }
+
+      const searchMatch = !query || medName.includes(query);
+
+      if (statusMatch && searchMatch) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    const noResultsEl = document.getElementById('doseNoResultsRow');
+    if (noResultsEl) {
+      if (visibleCount === 0 && rows.length > 0) {
+        noResultsEl.classList.remove('hidden');
+      } else {
+        noResultsEl.classList.add('hidden');
+      }
+    }
+  }
+
+  function openSkipModal(medId, medName) {
+    document.getElementById('skipModalMedId').value = medId;
+    document.getElementById('skipModalMedName').innerText = medName;
+    document.getElementById('skipModal').classList.remove('hidden');
+  }
+
+  function closeSkipModal() {
+    document.getElementById('skipModal').classList.add('hidden');
+  }
+
+  // D3.js 30-Day Adherence Line Chart Interactive Script
+  let d3AdherenceData = [];
+  let d3CurrentRange = 30;
+  const currentPatientId = {{ active_patient.patient_id }};
+
+  function fetchAndRenderD3Chart() {
+    fetch('/api/adherence-30days/' + currentPatientId)
+      .then(res => res.json())
+      .then(data => {
+        d3AdherenceData = data;
+        renderD3AdherenceChart();
+      })
+      .catch(err => {
+        console.error('Failed to load 30-day adherence points:', err);
+      });
+  }
+
+  function changeD3Range(range) {
+    d3CurrentRange = range;
+    [30, 14, 7].forEach(r => {
+      const btn = document.getElementById('d3Btn' + r);
+      if (btn) {
+        if (r === range) {
+          btn.className = 'px-3 py-1 rounded-lg bg-teal-600 text-white transition';
+        } else {
+          btn.className = 'px-3 py-1 rounded-lg text-slate-400 hover:text-white transition';
+        }
+      }
+    });
+    renderD3AdherenceChart();
+  }
+
+  function renderD3AdherenceChart() {
+    if (!window.d3 || !d3AdherenceData || d3AdherenceData.length === 0) return;
+
+    const filtered = d3AdherenceData.slice(-d3CurrentRange);
+    const container = document.getElementById('d3ChartContainer');
+    const svgEl = document.getElementById('d3AdherenceSvg');
+    const tooltip = document.getElementById('d3Tooltip');
+    if (!container || !svgEl) return;
+
+    // Update Summary Metrics
+    const avgScore = (filtered.reduce((acc, p) => acc + p.adherence_score, 0) / (filtered.length || 1)).toFixed(1);
+    const targetDays = filtered.filter(p => p.adherence_score >= 80).length;
+    const perfectDays = filtered.filter(p => p.adherence_score === 100).length;
+    const totalTaken = filtered.reduce((acc, p) => acc + p.taken_doses, 0);
+    const totalSched = filtered.reduce((acc, p) => acc + p.scheduled_doses, 0);
+
+    const avgEl = document.getElementById('d3AvgScore');
+    const targetEl = document.getElementById('d3TargetDays');
+    const perfectEl = document.getElementById('d3PerfectDays');
+    const takenEl = document.getElementById('d3TotalTaken');
+
+    if (avgEl) avgEl.innerText = `${avgScore}%`;
+    if (targetEl) targetEl.innerText = `${targetDays} / ${filtered.length} days`;
+    if (perfectEl) perfectEl.innerText = `${perfectDays} days`;
+    if (takenEl) takenEl.innerText = `${totalTaken} / ${totalSched}`;
+
+    // Dimensions
+    const width = container.clientWidth || 650;
+    const height = 250;
+    const margin = { top: 20, right: 25, bottom: 35, left: 40 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    const svg = d3.select(svgEl);
+    svg.selectAll('*').remove();
+
+    svg.attr('width', width)
+       .attr('height', height)
+       .attr('viewBox', `0 0 ${width} ${height}`);
+
+    // Gradients
+    const defs = svg.append('defs');
+    
+    const areaGrad = defs.append('linearGradient')
+      .attr('id', 'd3AreaGrad')
+      .attr('x1', '0%').attr('y1', '0%')
+      .attr('x2', '0%').attr('y2', '100%');
+    areaGrad.append('stop').attr('offset', '0%').attr('stop-color', '#14b8a6').attr('stop-opacity', 0.45);
+    areaGrad.append('stop').attr('offset', '80%').attr('stop-color', '#0f766e').attr('stop-opacity', 0.05);
+
+    const lineGrad = defs.append('linearGradient')
+      .attr('id', 'd3LineGrad')
+      .attr('x1', '0%').attr('y1', '0%')
+      .attr('x2', '100%').attr('y2', '0%');
+    lineGrad.append('stop').attr('offset', '0%').attr('stop-color', '#0d9488');
+    lineGrad.append('stop').attr('offset', '50%').attr('stop-color', '#14b8a6');
+    lineGrad.append('stop').attr('offset', '100%').attr('stop-color', '#10b981');
+
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // Scales
+    const xScale = d3.scalePoint()
+      .domain(filtered.map(d => d.date))
+      .range([0, innerWidth])
+      .padding(0.2);
+
+    const yScale = d3.scaleLinear()
+      .domain([0, 105])
+      .range([innerHeight, 0]);
+
+    // Grid lines
+    [0, 25, 50, 75, 80, 100].forEach(val => {
+      g.append('line')
+        .attr('x1', 0).attr('x2', innerWidth)
+        .attr('y1', yScale(val)).attr('y2', yScale(val))
+        .attr('stroke', val === 80 ? '#10b981' : '#334155')
+        .attr('stroke-width', val === 80 ? 1.5 : 1)
+        .attr('stroke-dasharray', val === 80 ? '4 4' : '2 2')
+        .attr('opacity', val === 80 ? 0.8 : 0.4);
+
+      if (val === 80) {
+        g.append('text')
+          .attr('x', innerWidth - 5)
+          .attr('y', yScale(val) - 4)
+          .attr('text-anchor', 'end')
+          .attr('fill', '#10b981')
+          .attr('font-size', '9px')
+          .attr('font-weight', '700')
+          .text('Clinical Target: 80%');
+      }
+    });
+
+    // Area
+    const area = d3.area()
+      .x(d => xScale(d.date))
+      .y0(innerHeight)
+      .y1(d => yScale(d.adherence_score))
+      .curve(d3.curveMonotoneX);
+
+    g.append('path')
+      .datum(filtered)
+      .attr('fill', 'url(#d3AreaGrad)')
+      .attr('d', area);
+
+    // Line
+    const line = d3.line()
+      .x(d => xScale(d.date))
+      .y(d => yScale(d.adherence_score))
+      .curve(d3.curveMonotoneX);
+
+    g.append('path')
+      .datum(filtered)
+      .attr('fill', 'none')
+      .attr('stroke', 'url(#d3LineGrad)')
+      .attr('stroke-width', 2.8)
+      .attr('stroke-linecap', 'round')
+      .attr('d', line);
+
+    // Circles
+    const pointsGroup = g.append('g');
+    filtered.forEach(d => {
+      const cx = xScale(d.date);
+      const cy = yScale(d.adherence_score);
+      const isPerfect = d.adherence_score === 100;
+      const isLow = d.adherence_score < 75;
+
+      pointsGroup.append('circle')
+        .attr('cx', cx)
+        .attr('cy', cy)
+        .attr('r', isLow ? 4.5 : 3.8)
+        .attr('fill', isPerfect ? '#10b981' : isLow ? '#f43f5e' : '#14b8a6')
+        .attr('stroke', '#0f172a')
+        .attr('stroke-width', 1.5)
+        .style('cursor', 'pointer');
+    });
+
+    // X Axis Labels
+    const tickStep = filtered.length > 20 ? 4 : filtered.length > 10 ? 2 : 1;
+    const xAxisGroup = g.append('g').attr('transform', `translate(0,${innerHeight})`);
+    filtered.forEach((d, idx) => {
+      if (idx % tickStep === 0 || idx === filtered.length - 1) {
+        xAxisGroup.append('text')
+          .attr('x', xScale(d.date))
+          .attr('y', 18)
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#94a3b8')
+          .attr('font-size', '9px')
+          .attr('font-weight', '600')
+          .text(d.display_date);
+      }
+    });
+
+    // Y Axis Labels
+    [0, 25, 50, 75, 100].forEach(val => {
+      g.append('text')
+        .attr('x', -8)
+        .attr('y', yScale(val) + 3)
+        .attr('text-anchor', 'end')
+        .attr('fill', '#94a3b8')
+        .attr('font-size', '9px')
+        .attr('font-weight', '600')
+        .text(`${val}%`);
+    });
+
+    // Hover Interaction
+    const focusLine = g.append('line')
+      .attr('y1', 0).attr('y2', innerHeight)
+      .attr('stroke', '#14b8a6')
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '3 3')
+      .style('opacity', 0);
+
+    const focusCircle = g.append('circle')
+      .attr('r', 6)
+      .attr('fill', '#10b981')
+      .attr('stroke', '#ffffff')
+      .attr('stroke-width', 2)
+      .style('opacity', 0);
+
+    svg.append('rect')
+      .attr('x', margin.left).attr('y', margin.top)
+      .attr('width', innerWidth).attr('height', innerHeight)
+      .attr('fill', 'transparent')
+      .style('cursor', 'crosshair')
+      .on('mousemove', function(event) {
+        const [mx] = d3.pointer(event);
+        let closest = filtered[0];
+        let minDist = Infinity;
+        filtered.forEach(d => {
+          const px = xScale(d.date) + margin.left;
+          const dist = Math.abs(px - mx);
+          if (dist < minDist) {
+            minDist = dist;
+            closest = d;
+          }
+        });
+
+        if (closest) {
+          const cx = xScale(closest.date);
+          const cy = yScale(closest.adherence_score);
+          focusLine.attr('x1', cx).attr('x2', cx).style('opacity', 1);
+          focusCircle.attr('cx', cx).attr('cy', cy).style('opacity', 1)
+                     .attr('fill', closest.adherence_score >= 80 ? '#10b981' : '#f43f5e');
+
+          if (tooltip) {
+            tooltip.classList.remove('hidden');
+            tooltip.style.left = `${cx + margin.left}px`;
+            tooltip.style.top = `${cy + margin.top - 10}px`;
+            tooltip.innerHTML = `
+              <div class="flex items-center justify-between border-b border-slate-800 pb-1">
+                <span class="font-bold text-teal-300">${closest.display_date} (${closest.day_of_week})</span>
+                <span class="px-1.5 py-0.2 rounded font-extrabold ${closest.adherence_score >= 80 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
+                  ${closest.adherence_score}%
+                </span>
+              </div>
+              <div class="text-[11px] text-slate-300 pt-1 space-y-0.5">
+                <p>Scheduled: <strong class="text-white">${closest.scheduled_doses} doses</strong></p>
+                <p>Taken: <strong class="text-emerald-400">${closest.taken_doses} doses</strong></p>
+                ${closest.missed_doses > 0 ? `<p>Missed: <strong class="text-rose-400">${closest.missed_doses} doses</strong></p>` : ''}
+              </div>
+            `;
+          }
+        }
+      })
+      .on('mouseleave', function() {
+        focusLine.style('opacity', 0);
+        focusCircle.style('opacity', 0);
+        if (tooltip) tooltip.classList.add('hidden');
+      });
+  }
+
+  // Load chart on DOM ready
+  document.addEventListener('DOMContentLoaded', () => {
+    fetchAndRenderD3Chart();
+    window.addEventListener('resize', renderD3AdherenceChart);
+  });
+</script>
+{% endblock %}

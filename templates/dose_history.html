@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}MediCare+ — Detailed Dose Compliance & Audit History{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header Banner -->
+  <div class="bg-gradient-to-r from-slate-850 via-slate-800 to-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center space-x-3">
+      <div class="p-3 bg-teal-500/10 rounded-2xl text-teal-400">
+        <i data-lucide="clipboard-check" class="h-6 w-6"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-white">Medication Dose Audit & Compliance History</h1>
+        <p class="text-xs text-slate-400">Complete historical record of doses taken, delayed, skipped, or missed</p>
+      </div>
+    </div>
+
+    <!-- Quick Filter Switcher & Print Button -->
+    <div class="flex flex-wrap items-center gap-2.5">
+      <a href="/export-dose-history-csv/{{ patient_id }}?status={{ filter_status }}" class="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition" title="Export full dose history as CSV file">
+        <i data-lucide="download" class="h-3.5 w-3.5"></i>
+        <span>Download CSV</span>
+      </a>
+
+      <a href="/audit-trail/{{ patient_id }}" target="_blank" class="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-600/20 transition">
+        <i data-lucide="printer" class="h-3.5 w-3.5"></i>
+        <span>Print Compliance Audit</span>
+      </a>
+
+      <div class="flex items-center space-x-2 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-bold">
+        <a href="?patient_id={{ patient_id }}&status=ALL" class="px-3.5 py-1.5 rounded-lg {% if filter_status == 'ALL' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white{% endif %}">
+          All Logs ({{ dose_records|length }})
+        </a>
+        <a href="?patient_id={{ patient_id }}&status=TAKEN" class="px-3.5 py-1.5 rounded-lg {% if filter_status == 'TAKEN' %}bg-emerald-600 text-white{% else %}text-slate-400 hover:text-white{% endif %}">
+          Taken Only
+        </a>
+        <a href="?patient_id={{ patient_id }}&status=MISSED" class="px-3.5 py-1.5 rounded-lg {% if filter_status == 'MISSED' %}bg-rose-600 text-white{% else %}text-slate-400 hover:text-white{% endif %}">
+          Missed / Skipped
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compliance Overview Card -->
+  <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+    <div class="bg-slate-850 border border-slate-700/80 rounded-xl p-4 text-center">
+      <span class="text-xs text-slate-400 block font-bold">ADHERENCE SCORE</span>
+      <span class="text-2xl font-black text-emerald-400 mt-1 block">{{ adherence.adherence_score }}%</span>
+      <span class="text-[10px] text-slate-500">{{ adherence.status_label }}</span>
+    </div>
+    <div class="bg-slate-850 border border-slate-700/80 rounded-xl p-4 text-center">
+      <span class="text-xs text-slate-400 block font-bold">TOTAL LOGGED</span>
+      <span class="text-2xl font-black text-white mt-1 block">{{ adherence.total_doses }}</span>
+      <span class="text-[10px] text-slate-500">recorded doses</span>
+    </div>
+    <div class="bg-slate-850 border border-slate-700/80 rounded-xl p-4 text-center">
+      <span class="text-xs text-slate-400 block font-bold">TAKEN DOSES</span>
+      <span class="text-2xl font-black text-teal-400 mt-1 block">{{ adherence.taken_doses }}</span>
+      <span class="text-[10px] text-slate-500">verified intake</span>
+    </div>
+    <div class="bg-slate-850 border border-slate-700/80 rounded-xl p-4 text-center">
+      <span class="text-xs text-slate-400 block font-bold">MISSED / SKIPPED</span>
+      <span class="text-2xl font-black text-rose-400 mt-1 block">{{ adherence.missed_doses + adherence.skipped_doses }}</span>
+      <span class="text-[10px] text-slate-500">non-compliant</span>
+    </div>
+  </div>
+
+  <!-- Full Table -->
+  <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs text-slate-300">
+        <thead class="bg-slate-900 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800 font-bold">
+          <tr>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4">Medication</th>
+            <th class="py-3 px-4">Dosage / Form</th>
+            <th class="py-3 px-4">Scheduled Date & Time</th>
+            <th class="py-3 px-4">Actual Intake Time</th>
+            <th class="py-3 px-4">Reason / Clinical Notes</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800">
+          {% for d in dose_records %}
+            <tr class="hover:bg-slate-900/50 transition">
+              <td class="py-3 px-4">
+                {% if d.status == 'TAKEN' %}
+                  <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <i data-lucide="check" class="h-3 w-3"></i> TAKEN
+                  </span>
+                {% elif d.status == 'TAKEN_LATE' %}
+                  <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    <i data-lucide="clock" class="h-3 w-3"></i> LATE
+                  </span>
+                {% elif d.status == 'SKIPPED' %}
+                  <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-slate-700 text-slate-300">
+                    <i data-lucide="minus" class="h-3 w-3"></i> SKIPPED
+                  </span>
+                {% else %}
+                  <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    <i data-lucide="x" class="h-3 w-3"></i> MISSED
+                  </span>
+                {% endif %}
+              </td>
+
+              <td class="py-3 px-4 font-bold text-white">{{ d.medicine_name }}</td>
+              <td class="py-3 px-4 text-teal-400 font-semibold">{{ d.dosage }} • {{ d.form }}</td>
+              <td class="py-3 px-4 font-mono text-slate-300">{{ d.scheduled_datetime[:16].replace('T', ' ') if d.scheduled_datetime else '—' }}</td>
+              <td class="py-3 px-4 font-mono text-slate-300">
+                {% if d.actual_datetime %}
+                  <span class="text-emerald-400">{{ d.actual_datetime[:16].replace('T', ' ') }}</span>
+                {% else %}
+                  <span class="text-rose-400 italic">Not taken</span>
+                {% endif %}
+              </td>
+              <td class="py-3 px-4">
+                {% if d.missed_reason %}
+                  <span class="text-rose-300 bg-rose-950/40 border border-rose-500/20 px-2 py-0.5 rounded text-[11px]">
+                    "{{ d.missed_reason }}"
+                  </span>
+                {% elif d.snooze_count and d.snooze_count > 0 %}
+                  <span class="text-amber-300 text-[11px]">Snoozed {{ d.snooze_count }} times</span>
+                {% else %}
+                  <span class="text-slate-400 italic">None</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="6" class="py-12 text-center text-slate-400">
+                <i data-lucide="clipboard-x" class="h-8 w-8 mx-auto text-slate-600 mb-2"></i>
+                <p class="font-bold text-slate-300">No dose records found for this filter</p>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediCare+ — Sign In</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 antialiased selection:bg-teal-500 selection:text-white">
+
+  <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
+    
+    <!-- Brand Header -->
+    <div class="text-center space-y-2">
+      <div class="inline-flex p-3 bg-gradient-to-tr from-teal-600 to-emerald-500 rounded-2xl text-white shadow-lg shadow-teal-500/20 mb-1">
+        <i data-lucide="pill" class="h-8 w-8"></i>
+      </div>
+      <h1 class="text-2xl font-black text-white tracking-tight">MediCare<span class="text-teal-400">+</span></h1>
+      <p class="text-xs text-slate-400">Smart Medication Management & Adherence Platform</p>
+    </div>
+
+    <!-- Error Alert -->
+    {% if error %}
+      <div class="p-3 bg-rose-950/80 border border-rose-500/40 text-rose-200 text-xs rounded-xl flex items-center space-x-2">
+        <i data-lucide="alert-circle" class="h-4 w-4 flex-shrink-0"></i>
+        <span>{{ error }}</span>
+      </div>
+    {% endif %}
+
+    <!-- Login Form -->
+    <form method="POST" action="/login" class="space-y-4">
+      <div>
+        <label class="block text-xs font-bold text-slate-300 mb-1">Email Address</label>
+        <input type="email" name="email" id="loginEmail" required placeholder="demo@medicare.org" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-teal-500 transition">
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-300 mb-1">Password</label>
+        <input type="password" name="password" id="loginPassword" required placeholder="••••••••" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-teal-500 transition">
+      </div>
+
+      <button type="submit" class="w-full py-3 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-teal-600/20 transition transform active:scale-98">
+        Sign In to Portal
+      </button>
+    </form>
+
+    <!-- 1-Click Role Exploration -->
+    <div class="pt-4 border-t border-slate-800 space-y-2 text-center">
+      <p class="text-xs font-bold text-slate-300">Quick 1-Click Role Exploration:</p>
+      <div class="grid grid-cols-3 gap-2">
+        <a href="/demo-login/patient" class="p-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-700 text-center transition block group">
+          <span class="block text-base mb-0.5">👤</span>
+          <span class="text-teal-400 font-bold text-[11px] block">Patient</span>
+          <span class="text-[10px] text-slate-400">Self Tracking</span>
+        </a>
+
+        <a href="/demo-login/doctor" class="p-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-teal-500/40 text-center transition block group">
+          <span class="block text-base mb-0.5">🩺</span>
+          <span class="text-teal-300 font-bold text-[11px] block">Doctor</span>
+          <span class="text-[10px] text-slate-400">Clinician</span>
+        </a>
+
+        <a href="/demo-login/caregiver" class="p-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 border border-indigo-500/40 text-center transition block group">
+          <span class="block text-base mb-0.5">🛡️</span>
+          <span class="text-indigo-300 font-bold text-[11px] block">Caregiver</span>
+          <span class="text-[10px] text-slate-400">Support Ward</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="text-center pt-2">
+      <p class="text-xs text-slate-400">
+        Don't have an account? <a href="/register" class="text-teal-400 hover:text-teal-300 font-bold underline underline-offset-2">Create Account</a>
+      </p>
+    </div>
+
+  </div>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

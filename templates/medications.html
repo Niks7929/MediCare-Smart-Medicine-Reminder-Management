@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block title %}MediCare+ — Medication Stock & QR Refills{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header Banner -->
+  <div class="bg-gradient-to-r from-slate-850 via-slate-800 to-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center space-x-3">
+      <div class="p-3 bg-teal-500/10 rounded-2xl text-teal-400">
+        <i data-lucide="pill" class="h-6 w-6"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-white">Active Drug Regimens & Stock Management</h1>
+        <p class="text-xs text-slate-400">Inventory levels, QR code generation, and refill requests</p>
+      </div>
+    </div>
+
+    <button onclick="document.getElementById('addMedModal').classList.remove('hidden')" class="px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center space-x-2">
+      <i data-lucide="plus-circle" class="h-4 w-4"></i>
+      <span>Add New Medication</span>
+    </button>
+  </div>
+
+  <!-- Medications Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+    {% for m in medicines %}
+      <div class="bg-slate-850 border {% if m.needs_refill %}border-amber-500/50 shadow-amber-500/10{% else %}border-slate-700/80{% endif %} rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+        
+        <div>
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <h2 class="font-bold text-white text-base">{{ m.name }}</h2>
+                <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/40">
+                  <i data-lucide="bell" class="h-2.5 w-2.5 text-teal-400"></i>
+                  {{ m.schedules|length if m.schedules else 1 }} {{ 'Dose' if (m.schedules|length if m.schedules else 1) == 1 else 'Doses' }} Due Today
+                </span>
+              </div>
+              <span class="text-xs text-teal-400 font-semibold">{{ m.dosage }} • {{ m.form }}</span>
+            </div>
+            {% if m.needs_refill %}
+              <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <i data-lucide="alert-triangle" class="h-3 w-3"></i> Refill Needed
+              </span>
+            {% endif %}
+          </div>
+
+          <p class="text-xs text-slate-300 mt-2.5 leading-relaxed">
+            <strong class="text-slate-200">Instructions:</strong> {{ m.instructions or 'Take as prescribed.' }}
+          </p>
+
+          <!-- Supply Meter -->
+          <div class="mt-4 bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-2">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-400">Pill Supply:</span>
+              <span class="font-bold {% if m.needs_refill %}text-amber-400{% else %}text-emerald-400{% endif %}">
+                {{ m.remaining_quantity }} of {{ m.total_quantity }} remaining
+              </span>
+            </div>
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div class="h-full rounded-full {% if m.needs_refill %}bg-amber-500{% else %}bg-gradient-to-r from-teal-500 to-emerald-400{% endif %}" style="width: {{ (m.remaining_quantity / m.total_quantity * 100)|round }}%"></div>
+            </div>
+            <div class="flex justify-between text-[11px] text-slate-400 pt-1">
+              <span>Threshold: {{ m.refill_threshold }} units</span>
+              <span>~{{ m.days_remaining }} days supply</span>
+            </div>
+          </div>
+
+          <!-- Snooze Interval Customization Widget -->
+          <div class="mt-3 bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
+                <i data-lucide="alarm-clock-off" class="h-4 w-4"></i>
+              </div>
+              <div class="truncate">
+                <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Snooze Interval</div>
+                <div class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                  <span class="text-indigo-300 font-extrabold">{{ m.snooze_interval_minutes or 10 }} mins</span>
+                  <span class="text-[10px] font-normal text-slate-400 hidden sm:inline">(postpone delay)</span>
+                </div>
+              </div>
+            </div>
+
+            <button type="button" onclick="openSnoozeModal('{{ m.medicine_id }}', '{{ m.name }}', {{ m.snooze_interval_minutes or 10 }})" class="px-2.5 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-indigo-200 border border-indigo-500/30 hover:border-indigo-400 rounded-lg text-xs font-bold transition flex items-center gap-1 flex-shrink-0" title="Customize Snooze Duration">
+              <i data-lucide="sliders" class="h-3.5 w-3.5"></i>
+              <span>Customize</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Action Footer -->
+        <div class="pt-3 border-t border-slate-800 flex items-center gap-2">
+          <!-- Refill Trigger -->
+          <form method="POST" action="/api/refill-request" class="flex-1">
+            <input type="hidden" name="medicine_id" value="{{ m.medicine_id }}">
+            <input type="hidden" name="patient_id" value="{{ patient_id }}">
+            <input type="hidden" name="requested_quantity" value="30">
+            <button type="submit" class="w-full py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5">
+              <i data-lucide="refresh-cw" class="h-3.5 w-3.5"></i> Request Refill
+            </button>
+          </form>
+
+          <!-- QR Code Preview Button -->
+          <button type="button" onclick="showQRCode('{{ m.name }}', '{{ m.dosage }}', '{{ m.qr_code_data or m.name }}')" class="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5">
+            <i data-lucide="qr-code" class="h-3.5 w-3.5 text-teal-400"></i> QR
+          </button>
+
+          <!-- Delete Medication Button -->
+          <button type="button" onclick="confirmDeleteMedicine('{{ m.medicine_id }}', '{{ m.name }}', '{{ m.dosage }}', '{{ m.form }}', '{{ m.remaining_quantity }}', '{{ m.total_quantity }}')" class="py-2 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1" title="Delete Medication">
+            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+            <span>Delete</span>
+          </button>
+        </div>
+
+      </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<!-- Add Medicine Modal -->
+<div id="addMedModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <h3 class="font-bold text-white text-base flex items-center gap-2">
+        <i data-lucide="pill" class="h-5 w-5 text-teal-400"></i> Register New Medication
+      </h3>
+      <button onclick="document.getElementById('addMedModal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+
+    <form method="POST" action="/api/medicines" class="space-y-4">
+      <input type="hidden" name="patient_id" value="{{ patient_id }}">
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Medication Name</label>
+          <input type="text" name="name" required placeholder="e.g. Metformin" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Dosage</label>
+          <input type="text" name="dosage" required placeholder="e.g. 500mg" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white outline-none">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Form</label>
+          <select name="form" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white outline-none">
+            <option value="Tablet">Tablet</option>
+            <option value="Capsule">Capsule</option>
+            <option value="Syrup">Syrup</option>
+            <option value="Injection">Injection</option>
+            <option value="Inhaler">Inhaler</option>
+            <option value="Drops">Drops</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Daily Scheduled Time</label>
+          <input type="time" name="scheduled_time" value="08:00" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white outline-none">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Initial Pill Count</label>
+          <input type="number" name="total_quantity" value="30" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Refill Alert Threshold</label>
+          <input type="number" name="refill_threshold" value="5" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white outline-none">
+        </div>
+      </div>
+
+      <!-- Snooze Interval Configuration -->
+      <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="block text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+            <i data-lucide="alarm-clock-off" class="h-3.5 w-3.5 text-indigo-400"></i>
+            <span>Dose Reminder Snooze Interval</span>
+          </label>
+          <span class="text-[11px] text-slate-400">Postpone delay</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="number" id="add_snooze_input" name="snooze_interval_minutes" value="10" min="1" max="180" class="w-24 bg-slate-800 border border-indigo-500/40 rounded-xl px-3 py-1.5 text-xs text-white font-bold outline-none text-center">
+          <span class="text-xs text-slate-400">minutes</span>
+          <div class="flex-1 flex gap-1 justify-end flex-wrap">
+            <button type="button" onclick="document.getElementById('add_snooze_input').value=5" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg border border-slate-700 transition">5m</button>
+            <button type="button" onclick="document.getElementById('add_snooze_input').value=10" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[10px] font-bold rounded-lg border border-indigo-500/40 transition">10m</button>
+            <button type="button" onclick="document.getElementById('add_snooze_input').value=15" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg border border-slate-700 transition">15m</button>
+            <button type="button" onclick="document.getElementById('add_snooze_input').value=30" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg border border-slate-700 transition">30m</button>
+            <button type="button" onclick="document.getElementById('add_snooze_input').value=60" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg border border-slate-700 transition">60m</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">Meal & Timing Instructions</label>
+        <textarea name="instructions" rows="2" placeholder="e.g. Take immediately after breakfast with full glass of water..." class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-xs text-white outline-none"></textarea>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button type="button" onclick="document.getElementById('addMedModal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold rounded-xl shadow">
+          Save Medication
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- QR Code Display Modal -->
+<div id="qrModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl space-y-4">
+    <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+      <h3 class="font-bold text-white text-sm" id="qrModalTitle">Medicine Verification QR</h3>
+      <button onclick="document.getElementById('qrModal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+
+    <div class="p-4 bg-white rounded-2xl inline-block shadow-inner mx-auto">
+      <!-- QR Image generated dynamically with public api -->
+      <img id="qrImage" src="" alt="QR Code" class="h-44 w-44">
+    </div>
+
+    <p class="text-xs text-slate-400" id="qrSubtitle">Scan pillbox code to instantly confirm dose intake.</p>
+  </div>
+</div>
+
+<!-- Delete Medication Confirmation Modal -->
+<div id="deleteMedModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+    <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="alert-triangle" class="h-5 w-5"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-white text-base">Delete Medication Prescription</h3>
+          <p class="text-xs text-slate-400">Confirm permanent removal</p>
+        </div>
+      </div>
+      <button onclick="document.getElementById('deleteMedModal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+
+    <!-- Details Box -->
+    <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs">
+      <div class="flex items-center justify-between">
+        <span class="font-bold text-white text-sm" id="delMedName">Medication Name</span>
+        <span class="px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 text-[10px] font-bold" id="delMedForm">Tablet</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+        <div>
+          <span>Dosage: </span>
+          <strong class="text-slate-200" id="delMedDosage">1 tablet</strong>
+        </div>
+        <div>
+          <span>Stock: </span>
+          <strong class="text-slate-200" id="delMedStock">30 units</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Warning Message -->
+    <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-start gap-2">
+      <i data-lucide="alert-circle" class="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5"></i>
+      <p>This action will permanently delete the prescription, scheduled alarms, and stock tracking records.</p>
+    </div>
+
+    <form id="deleteMedForm" method="POST" action="">
+      <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button type="button" onclick="document.getElementById('deleteMedModal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5">
+          <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+          <span>Yes, Delete Medication</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Customize Snooze Interval Modal -->
+<div id="snoozeModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+    <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="alarm-clock-off" class="h-5 w-5"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-white text-base">Customize Snooze Interval</h3>
+          <p class="text-xs text-slate-400" id="snoozeMedSubtitle">Set postponement duration for dose reminders</p>
+        </div>
+      </div>
+      <button onclick="document.getElementById('snoozeModal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+
+    <!-- Explanation Box -->
+    <div class="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-3 text-xs text-indigo-200 flex items-start gap-2">
+      <i data-lucide="info" class="h-4 w-4 text-indigo-400 flex-shrink-0 mt-0.5"></i>
+      <p>When you click <strong>Snooze</strong> on this medication during a dose alert, the reminder alarm will be postponed by this exact interval.</p>
+    </div>
+
+    <form id="snoozeForm" method="POST" action="" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-2">Select or Enter Postpone Minutes</label>
+        
+        <!-- Preset quick buttons -->
+        <div class="grid grid-cols-4 gap-2 mb-3">
+          <button type="button" onclick="setSnoozeInput(5)" class="snooze-chip py-2 px-2 rounded-xl bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 text-xs font-bold text-slate-200 hover:text-indigo-300 transition text-center" data-val="5">5 min</button>
+          <button type="button" onclick="setSnoozeInput(10)" class="snooze-chip py-2 px-2 rounded-xl bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 text-xs font-bold text-slate-200 hover:text-indigo-300 transition text-center" data-val="10">10 min</button>
+          <button type="button" onclick="setSnoozeInput(15)" class="snooze-chip py-2 px-2 rounded-xl bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 text-xs font-bold text-slate-200 hover:text-indigo-300 transition text-center" data-val="15">15 min</button>
+          <button type="button" onclick="setSnoozeInput(20)" class="snooze-chip py-2 px-2 rounded-xl bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 text-xs font-bold text-slate-200 hover:text-indigo-300 transition text-center" data-val="20">20 min</button>
+          <button type="button" onclick="setSnoozeInput(30)" class="snooze-chip py-2 px-2 rounded-xl bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 text-xs font-bold text-slate-200 hover:text-indigo-300 transition text-center" data-val="30">30 min</button>
+          <button type="button" onclick="setSnoozeInput(45)" class="snooze-chip py-2 px-2 rounded-xl bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 text-xs font-bold text-slate-200 hover:text-indigo-300 transition text-center" data-val="45">45 min</button>
+          <button type="button" onclick="setSnoozeInput(60)" class="snooze-chip py-2 px-2 rounded-xl bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 text-xs font-bold text-slate-200 hover:text-indigo-300 transition text-center" data-val="60">60 min</button>
+          <button type="button" onclick="setSnoozeInput(90)" class="snooze-chip py-2 px-2 rounded-xl bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 text-xs font-bold text-slate-200 hover:text-indigo-300 transition text-center" data-val="90">90 min</button>
+        </div>
+
+        <div class="flex items-center gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <input type="number" id="snooze_input_val" name="snooze_interval_minutes" value="10" min="1" max="180" class="w-28 bg-slate-800 border border-indigo-500/50 rounded-xl px-3 py-2 text-sm text-white font-extrabold text-center outline-none focus:ring-2 focus:ring-indigo-500">
+          <div class="text-xs text-slate-400">
+            <span class="font-bold text-slate-200">Custom Duration</span>
+            <span class="block text-[11px] text-slate-500">Allowed range: 1 – 180 minutes</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
+        <button type="button" onclick="document.getElementById('snoozeModal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5">
+          <i data-lucide="check" class="h-3.5 w-3.5"></i>
+          <span>Save Snooze Interval</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function showQRCode(name, dosage, data) {
+    document.getElementById('qrModalTitle').innerText = name + ' (' + dosage + ')';
+    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(data);
+    document.getElementById('qrImage').src = qrUrl;
+    document.getElementById('qrModal').classList.remove('hidden');
+  }
+
+  function confirmDeleteMedicine(medId, name, dosage, form, remQty, totQty) {
+    document.getElementById('delMedName').innerText = name;
+    document.getElementById('delMedForm').innerText = form;
+    document.getElementById('delMedDosage').innerText = dosage;
+    document.getElementById('delMedStock').innerText = remQty + ' of ' + totQty + ' units';
+    document.getElementById('deleteMedForm').action = '/api/medicines/' + medId + '/delete';
+    document.getElementById('deleteMedModal').classList.remove('hidden');
+  }
+
+  function openSnoozeModal(medId, medName, currentInterval) {
+    document.getElementById('snoozeMedSubtitle').innerText = 'Custom postpone delay for ' + medName;
+    document.getElementById('snoozeForm').action = '/api/medicines/' + medId + '/snooze-interval';
+    setSnoozeInput(currentInterval || 10);
+    document.getElementById('snoozeModal').classList.remove('hidden');
+  }
+
+  function setSnoozeInput(val) {
+    document.getElementById('snooze_input_val').value = val;
+    document.querySelectorAll('.snooze-chip').forEach(function(el) {
+      if (parseInt(el.getAttribute('data-val')) === parseInt(val)) {
+        el.className = 'snooze-chip py-2 px-2 rounded-xl bg-indigo-600 border border-indigo-400 text-xs font-bold text-white shadow transition text-center';
+      } else {
+        el.className = 'snooze-chip py-2 px-2 rounded-xl bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-400 text-xs font-bold text-slate-200 hover:text-indigo-300 transition text-center';
+      }
+    });
+  }
+</script>
+{% endblock %}

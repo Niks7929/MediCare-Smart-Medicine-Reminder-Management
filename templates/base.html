@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}MediCare+ Smart Medication Management{% endblock %}</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- D3.js Visualization Library -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-teal-500 selection:text-white">
+
+  <!-- Top Sticky Navigation Bar -->
+  <header class="bg-slate-950/95 backdrop-blur border-b border-slate-800 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Brand Logo -->
+        <a href="/" class="flex items-center space-x-3 group">
+          <div class="bg-gradient-to-tr from-teal-600 to-emerald-500 text-white p-2.5 rounded-xl shadow-lg shadow-teal-500/20 group-hover:scale-105 transition transform">
+            <i data-lucide="pill" class="h-6 w-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <span class="text-xl font-black tracking-tight text-white">MediCare</span>
+              <span class="text-teal-400 text-xl font-extrabold">+</span>
+              <span class="text-[10px] bg-teal-500/10 text-teal-400 border border-teal-500/30 px-1.5 py-0.5 rounded font-mono font-bold ml-1">PYTHON</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Smart Medication Management System</p>
+          </div>
+        </a>
+
+        <!-- Right Header Actions -->
+        <div class="flex items-center space-x-3">
+          
+          <!-- Speech Synthesis Reminder Announcer Button -->
+          <button id="voiceToggleBtn" onclick="toggleVoiceAnnouncements()" class="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-850 border border-slate-700 hover:border-teal-500/50 text-slate-300 transition">
+            <i data-lucide="volume-2" class="h-4 w-4 text-teal-400"></i>
+            <span id="voiceStatusText">Voice: ON</span>
+          </button>
+
+          <!-- Multi-Patient Switcher -->
+          {% if patients %}
+          <div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg p-1">
+            <i data-lucide="users" class="h-3.5 w-3.5 text-slate-400 ml-1.5 mr-1"></i>
+            <select onchange="window.location.href='?patient_id=' + this.value" class="bg-transparent text-xs font-semibold text-white px-2 py-1 outline-none cursor-pointer">
+              {% for p in patients %}
+                <option value="{{ p.patient_id }}" {% if active_patient and active_patient.patient_id == p.patient_id %}selected{% endif %} class="bg-slate-900 text-white">
+                  {{ p.name }} ({{ p.relationship }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          <!-- User Role & Logout -->
+          {% if current_user %}
+          <div class="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 text-xs">
+            <span class="font-bold text-slate-200 hidden md:inline">{{ current_user.full_name }}</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border {% if current_user.role == 'doctor' %}bg-teal-500/20 text-teal-300 border-teal-500/40{% elif current_user.role == 'caregiver' %}bg-indigo-500/20 text-indigo-300 border-indigo-500/40{% else %}bg-emerald-500/20 text-emerald-300 border-emerald-500/40{% endif %}">
+              {{ current_user.role|capitalize }}
+            </span>
+            <a href="/logout" class="px-2 py-1 bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 rounded text-xs font-bold transition flex items-center gap-1 ml-1" title="Sign Out">
+              <i data-lucide="log-out" class="h-3.5 w-3.5"></i>
+              <span>Logout</span>
+            </a>
+          </div>
+          {% else %}
+          <a href="/login" class="px-4 py-2 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition shadow-md">
+            Sign In
+          </a>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="border-t border-slate-800/80 bg-slate-950 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto flex space-x-1 overflow-x-auto py-1 scrollbar-none text-xs font-semibold">
+        {% if current_user and current_user.role == 'doctor' %}
+          <a href="/doctor-portal" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'doctor-portal' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="home" class="h-3.5 w-3.5"></i>
+            <span>Home / Clinician Portal</span>
+          </a>
+          <a href="/prescriptions" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'prescriptions' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+            <span>Prescriptions</span>
+          </a>
+          <a href="/medications" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'medications' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="pill" class="h-3.5 w-3.5"></i>
+            <span>Drug Regimens</span>
+          </a>
+        {% elif current_user and current_user.role == 'caregiver' %}
+          <a href="/caregiver-portal" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'caregiver-portal' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="home" class="h-3.5 w-3.5"></i>
+            <span>Home / Ward Oversight</span>
+          </a>
+          <a href="/dashboard" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'dashboard' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="activity" class="h-3.5 w-3.5"></i>
+            <span>Patient Schedule</span>
+          </a>
+          <a href="/caregivers" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'caregivers' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="bell" class="h-3.5 w-3.5"></i>
+            <span>Alert Contacts</span>
+          </a>
+        {% else %}
+          <a href="/dashboard" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'dashboard' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="home" class="h-3.5 w-3.5"></i>
+            <span>Home / Daily Schedule</span>
+          </a>
+          <a href="/medications" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'medications' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="pill" class="h-3.5 w-3.5"></i>
+            <span>Medicines & Refills</span>
+          </a>
+          <a href="/dose-history" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'dose-history' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="clipboard-list" class="h-3.5 w-3.5"></i>
+            <span>Dose History Logs</span>
+          </a>
+          <a href="/caregivers" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'caregivers' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="bell" class="h-3.5 w-3.5"></i>
+            <span>Caregiver Alerts</span>
+          </a>
+          <a href="/prescriptions" class="px-3.5 py-2 rounded-md transition flex items-center gap-1.5 {% if active_page == 'prescriptions' %}bg-teal-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-900{% endif %}">
+            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+            <span>Prescriptions</span>
+          </a>
+        {% endif %}
+      </div>
+    </nav>
+  </header>
+
+  <!-- Flash Notification Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        {% for category, message in messages %}
+          <div class="p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between shadow-sm {% if category == 'success' %}bg-emerald-950/80 border-emerald-500/40 text-emerald-200{% elif category == 'error' %}bg-rose-950/80 border-rose-500/40 text-rose-200{% else %}bg-teal-950/80 border-teal-500/40 text-teal-200{% endif %}">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="info" class="h-4 w-4"></i>
+              <span>{{ message }}</span>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white">✕</button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Main Content Body -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-slate-950 border-t border-slate-800/80 py-6 text-center text-xs text-slate-400">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div class="flex items-center space-x-2">
+        <span class="font-bold text-slate-200">MediCare+ Python Engine</span>
+        <span>•</span>
+        <span>Flask 3.0 & SQLite 3</span>
+      </div>
+      <p class="text-slate-400">Medical reminder & adherence compliance tracking platform</p>
+    </div>
+  </footer>
+
+  <script>
+    lucide.createIcons();
+
+    // Voice announcement speech synthesis logic
+    let voiceEnabled = localStorage.getItem('medicare_voice') !== 'false';
+    
+    function updateVoiceBtnUI() {
+      const text = document.getElementById('voiceStatusText');
+      if (text) {
+        text.innerText = voiceEnabled ? 'Voice: ON' : 'Voice: OFF';
+      }
+    }
+    updateVoiceBtnUI();
+
+    function toggleVoiceAnnouncements() {
+      voiceEnabled = !voiceEnabled;
+      localStorage.setItem('medicare_voice', voiceEnabled);
+      updateVoiceBtnUI();
+      if (voiceEnabled && 'speechSynthesis' in window) {
+        const u = new SpeechSynthesisUtterance("Voice reminders are now enabled.");
+        window.speechSynthesis.speak(u);
+      }
+    }
+
+    function speakText(text) {
+      if (!voiceEnabled || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    }
+  </script>
+</body>
+</html>

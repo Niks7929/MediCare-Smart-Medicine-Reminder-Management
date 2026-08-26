@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}MediCare+ — Prescriptions & Clinical Records{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header Banner -->
+  <div class="bg-gradient-to-r from-slate-850 via-slate-800 to-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center space-x-3">
+      <div class="p-3 bg-teal-500/10 rounded-2xl text-teal-400">
+        <i data-lucide="file-text" class="h-6 w-6"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-white">Prescription Vault & Doctor Orders</h1>
+        <p class="text-xs text-slate-400">Archive of physician prescriptions and clinical directions</p>
+      </div>
+    </div>
+
+    <button onclick="document.getElementById('addRxModal').classList.remove('hidden')" class="px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center space-x-2">
+      <i data-lucide="plus-circle" class="h-4 w-4"></i>
+      <span>Record New Prescription</span>
+    </button>
+  </div>
+
+  <!-- Prescriptions List -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    {% for p in prescriptions %}
+      <div class="bg-slate-850 border border-slate-700/80 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-4">
+        <div>
+          <div class="flex items-start justify-between pb-3 border-b border-slate-800">
+            <div>
+              <h2 class="font-bold text-white text-base">{{ p.doctor_name or 'Prescribing Physician' }}</h2>
+              <span class="text-xs text-teal-400 font-semibold">{{ p.clinic_name or 'Medical Center' }}</span>
+            </div>
+            <span class="bg-slate-800 text-slate-300 text-xs px-2.5 py-1 rounded-lg font-mono">
+              {{ p.prescription_date or 'Active' }}
+            </span>
+          </div>
+
+          <div class="mt-4 bg-slate-900/90 rounded-xl p-4 border border-slate-800">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Clinical Instructions</h3>
+            <p class="text-xs text-slate-200 leading-relaxed whitespace-pre-line">{{ p.notes }}</p>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+          <span class="flex items-center gap-1">
+            <i data-lucide="shield-check" class="h-4 w-4 text-teal-400"></i> Verified Medical Record
+          </span>
+          <span class="font-mono text-[11px]">ID #RX-{{ p.prescription_id }}</span>
+        </div>
+      </div>
+    {% else %}
+      <div class="col-span-2 py-12 text-center text-slate-400 bg-slate-850 rounded-2xl border border-slate-700/80">
+        <i data-lucide="file-x" class="h-10 w-10 mx-auto text-slate-600 mb-2"></i>
+        <p class="font-bold text-slate-300">No Prescriptions Archived Yet</p>
+      </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<!-- Add Prescription Modal -->
+<div id="addRxModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <h3 class="font-bold text-white text-base flex items-center gap-2">
+        <i data-lucide="file-plus" class="h-5 w-5 text-teal-400"></i> Record Prescription
+      </h3>
+      <button onclick="document.getElementById('addRxModal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+
+    <form method="POST" action="/api/prescriptions" class="space-y-4">
+      <input type="hidden" name="patient_id" value="{{ patient_id }}">
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">Doctor Name</label>
+        <input type="text" name="doctor_name" required placeholder="Enter Doctor / Physician Name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white outline-none">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">Clinic / Hospital</label>
+        <input type="text" name="clinic_name" placeholder="e.g. Metro Medical Center" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white outline-none">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1">Prescription Notes & Directions</label>
+        <textarea name="notes" rows="4" required placeholder="Enter clinical notes, diagnoses, and medication guidance..." class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-xs text-white outline-none"></textarea>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button type="button" onclick="document.getElementById('addRxModal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold rounded-xl shadow">
+          Save Prescription
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

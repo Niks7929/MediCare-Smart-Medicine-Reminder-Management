@@ -1,0 +1,10 @@
+{
+  "name": "MediCare+ — Smart Medicine Reminder & Management",
+  "description": "Smart Medication Management System with adherence score, 7-day granular dose log modal, low stock alerts, D3.js missed-dose hours & reasons visualizers, ML adherence risk forecasts, multi-patient profiles, profile photo capture, and compliance audit exports.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
